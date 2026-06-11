@@ -20,7 +20,8 @@
     padding:0 2.4vw;background:linear-gradient(180deg,rgba(3,8,26,.96),rgba(3,8,26,.78));
     border-bottom:3px solid var(--gold);backdrop-filter:blur(6px);}
   .brand{display:flex;align-items:center;}
-  .trophy{font-size:5.4vh;filter:drop-shadow(0 0 12px rgba(255,214,10,.55));margin-right:1.1vw;}
+  .trophy{display:flex;align-items:center;margin-right:1.1vw;}
+  .trophy svg{width:5.6vh;height:5.6vh;color:var(--gold);filter:drop-shadow(0 0 12px rgba(255,214,10,.55));}
   .brand h1{font-size:3.9vh;font-weight:800;letter-spacing:.5px;line-height:1;}
   .brand .sub{font-size:1.7vh;color:var(--gold);font-weight:600;letter-spacing:3px;text-transform:uppercase;}
   .hr{display:flex;align-items:center;}
@@ -155,6 +156,7 @@
   .km .ksc{flex:0 0 auto;font-weight:800;font-variant-numeric:tabular-nums;min-width:4vw;text-align:center;}
   .km.final{background:linear-gradient(135deg,rgba(255,214,10,.16),rgba(255,255,255,.05));border-color:var(--gold);}
   .km.final .rfinal{font-size:1.6vh;color:var(--gold);text-align:center;font-weight:800;letter-spacing:2px;margin-bottom:.5vh;text-transform:uppercase;}
+  .rfinal svg{width:1.8vh;height:1.8vh;vertical-align:-.3vh;color:var(--gold);margin-right:.3vw;}
   .km.final .kt{font-size:2.6vh;}
   .champ{margin-top:.8vh;text-align:center;font-size:1.7vh;color:var(--gold);font-weight:700;}
 
@@ -163,13 +165,15 @@
     background:radial-gradient(ellipse at center,#16386f 0%,#0a1f44 45%,#03081a 100%);animation:champFade .8s ease;}
   #champ.hidden{display:none;}
   #confetti{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:1;}
-  #confetti span{position:absolute;top:-8vh;opacity:.85;line-height:1;
+  #confetti span{position:absolute;top:-8vh;opacity:.9;line-height:1;
     filter:drop-shadow(0 0 6px rgba(255,214,10,.35));
     animation-name:fall;animation-timing-function:linear;animation-iteration-count:infinite;}
+  #confetti span svg{width:100%;height:auto;display:block;color:inherit;}
   @keyframes fall{0%{transform:translateY(-8vh) rotate(0);opacity:0;}8%{opacity:.9;}100%{transform:translateY(114vh) rotate(360deg);opacity:.9;}}
   .champ-inner{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;text-align:center;}
   .champ-inner>*{margin:.65vh 0;}
-  .champ-trophy{font-size:14vh;line-height:1;filter:drop-shadow(0 0 32px rgba(255,214,10,.7));animation:floaty 3s ease-in-out infinite;}
+  .champ-trophy{line-height:1;animation:floaty 3s ease-in-out infinite;}
+  .champ-trophy svg{width:14vh;height:14vh;color:var(--gold);filter:drop-shadow(0 0 32px rgba(255,214,10,.7));}
   .champ-sub{font-size:2.5vh;letter-spacing:7px;color:var(--blue);text-transform:uppercase;font-weight:700;}
   .champ-title{font-size:6vh;font-weight:900;letter-spacing:5px;text-transform:uppercase;
     background:linear-gradient(90deg,#ffd60a,#fff7c2,#ffd60a);-webkit-background-clip:text;background-clip:text;color:transparent;}
@@ -206,7 +210,7 @@
 <header>
   <div class="live-flag"><span class="ldot"></span><span>LIVE</span></div>
   <div class="brand">
-    <div class="trophy">&#127942;</div>
+    <div class="trophy"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 4V2H6v2H2v4c0 2.21 1.79 4 4 4h.34C7.16 14.63 8.92 16 11 16.9V19H7v2h10v-2h-4v-2.1c2.08-.9 3.84-2.27 4.66-4.9H18c2.21 0 4-1.79 4-4V4h-4zM6 10c-1.1 0-2-.9-2-2V6h2v4zm14-2c0 1.1-.9 2-2 2V6h2v2z"/></svg></div>
     <div>
       <h1>FIFA World Cup 2026</h1>
       <div class="sub">USA &middot; Canada &middot; Mexico</div>
@@ -232,7 +236,7 @@
 <div id="champ" class="hidden">
   <div id="confetti"></div>
   <div class="champ-inner">
-    <div class="champ-trophy">&#127942;</div>
+    <div class="champ-trophy"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 4V2H6v2H2v4c0 2.21 1.79 4 4 4h.34C7.16 14.63 8.92 16 11 16.9V19H7v2h10v-2h-4v-2.1c2.08-.9 3.84-2.27 4.66-4.9H18c2.21 0 4-1.79 4-4V4h-4zM6 10c-1.1 0-2-.9-2-2V6h2v4zm14-2c0 1.1-.9 2-2 2V6h2v2z"/></svg></div>
     <div class="champ-sub">FIFA World Cup 2026</div>
     <div class="champ-title">World Champions</div>
     <img class="champ-flag" id="champFlag" alt="">
@@ -318,6 +322,8 @@ let clockState={};                      // id -> {min,sec,stop} running match cl
 let prevGoals={};                       // id -> last total goals (for GOAL detection)
 let goalFlashTimer=null, actx=null;
 function NOW(){ return simNow!=null ? new Date(simNow) : new Date(); }
+/* inline trophy icon (emoji don't render on the old Yodeck browser) */
+const TROPHY='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 4V2H6v2H2v4c0 2.21 1.79 4 4 4h.34C7.16 14.63 8.92 16 11 16.9V19H7v2h10v-2h-4v-2.1c2.08-.9 3.84-2.27 4.66-4.9H18c2.21 0 4-1.79 4-4V4h-4zM6 10c-1.1 0-2-.9-2-2V6h2v4zm14-2c0 1.1-.9 2-2 2V6h2v2z"/></svg>';
 
 /* ---------- match clock + GOAL flash + sound ---------- */
 function pad2(n){ n=String(n); return n.length<2 ? ("0"+n) : n; }
@@ -733,7 +739,7 @@ function renderKnockout(ctx){
       else if(m&&m.finished){ center='<span class="ksc">'+(m.hs==null?0:m.hs)+'-'+(m.as==null?0:m.as)+'</span>'; }
       else { center='<span class="ksc" style="color:var(--muted);font-weight:600">v</span>'; }
       html+='<div class="km'+(isFinal?" final":"")+live+'">';
-      if(isFinal) html+='<div class="rfinal">&#127942; World Champion 2026</div>';
+      if(isFinal) html+='<div class="rfinal">'+TROPHY+' World Champion 2026</div>';
       const koLive = m&&m.cls==="live" ? (clockTextFor(fx)?'<span class="js-clk" data-fx="'+fx.id+'">'+clockTextFor(fx)+'</span>':esc(m.minute)) : "";
       html+='<div class="kwhen">'+(m&&m.cls==="live"?('<span class="badge-live">'+koLive+'</span>'):(m&&m.finished?"Full Time":relWhen(fx)))+'</div>';
       html+='<div class="krow">'+
@@ -805,13 +811,14 @@ function championInfo(){
   return null;
 }
 function buildConfetti(){
+  const cols=["#ffd60a","#ffe55c","#ffffff","#00d4ff","#3ddc84"];
   let h="";
   for(let i=0;i<50;i++){
     const left=(Math.random()*100).toFixed(2);
     const delay=(Math.random()*5).toFixed(2);
     const dur=(4+Math.random()*4).toFixed(2);
     const size=(2+Math.random()*2.6).toFixed(2);
-    h+='<span style="left:'+left+'%;font-size:'+size+'vh;animation-delay:'+delay+'s;animation-duration:'+dur+'s;">\u{1F3C6}</span>';
+    h+='<span style="left:'+left+'%;width:'+size+'vh;color:'+cols[i%cols.length]+';animation-delay:'+delay+'s;animation-duration:'+dur+'s;">'+TROPHY+'</span>';
   }
   document.getElementById("confetti").innerHTML=h;
 }
