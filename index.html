@@ -305,7 +305,11 @@ const DATA = {"groups":{"A":["Mexico","South Africa","Korea Republic","Czech Rep
 const CFG = {
   apiKey:"3", leagueId:"4429", season:"2026", tz:"Europe/Athens",
   dataRefreshMs:45000, liveRefreshMs:20000, fetchTimeoutMs:12000,
-  scrollPxPerSec:26, upDurationSec:3, bottomPauseMs:3000, topPauseMs:2000
+  scrollPxPerSec:26, upDurationSec:3, bottomPauseMs:3000, topPauseMs:2000,
+  // api-sports.io — used ONLY for the real live minute (few calls/day)
+  apiSportsKey:"084d598d4ff66e1e85accdc52eb51f7b",
+  apiSportsUrl:"https://v3.football.api-sports.io/fixtures?live=all",
+  apiSportsSafetyMs: 8*60*1000   // periodic re-anchor while a match is live
 };
 const BASE = "https://www.thesportsdb.com/api/v1/json/"+CFG.apiKey;
 
@@ -328,14 +332,19 @@ const TROPHY='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 4V2H6v2H
 /* ---------- match clock + GOAL flash + sound ---------- */
 function pad2(n){ n=String(n); return n.length<2 ? ("0"+n) : n; }
 function fmtMMSS(s){ return (s.stop>0 ? (s.min+"+"+s.stop) : ""+s.min)+":"+pad2(s.sec); }
-function baseMinute(m){ if(!m) return null; const n=parseInt(String(m.minute||"").replace(/[^\d].*$/,""),10); return isNaN(n)?null:n; }
-function clockTextFor(fx){
-  const s=clockState[fx.id]; if(s) return fmtMMSS(s);
-  const b=baseMinute(fx._m); return b!=null ? (b+":00") : "";
-}
+function fmtState(s){ return s.ht ? "HT" : fmtMMSS(s); }
+function clockTextFor(fx){ const s=clockState[fx.id]; return s ? fmtState(s) : ""; }
 function updateClockDom(id){
-  const s=clockState[id]; if(!s) return; const t=fmtMMSS(s);
-  document.querySelectorAll('.js-clk[data-fx="'+id+'"]').forEach(e=>e.textContent=t);
+  const s=clockState[id]; if(!s) return; const t=fmtState(s);
+  document.querySelectorAll('.js-clk[data-fx="'+id+'"]').forEach(function(e){e.textContent=t;});
+}
+function phaseOf(st){
+  st=(st||"").toUpperCase();
+  if(st==="HT"||st==="BT"||/HALF\s*TIME|BREAK/.test(st)) return "ht";
+  if(st==="2H"||/SECOND/.test(st)) return "h2";
+  if(st==="1H"||/FIRST/.test(st)) return "h1";
+  if(st==="ET"||st==="P"||st==="PEN"||/EXTRA|PENALT/.test(st)) return "et";
+  return "live";
 }
 function syncClocks(){
   const liveIds=new Set();
@@ -344,12 +353,53 @@ function syncClocks(){
     if(m&&m.cls==="live"){
       liveIds.add(fx.id);
       if(liveSimOn && simIds.has(fx.id)) continue;   // simulation drives its own clock
-      const b=baseMinute(m); if(b==null) continue;  // no numeric minute -> no seconds clock
+      const ht=(phaseOf(m.status)==="ht");
       const s=clockState[fx.id];
-      if(!s || s.min!==b) clockState[fx.id]={min:b,sec:0,stop:0};
+      if(s && s.src==="api"){                          // keep the real minute from api-sports
+        if(ht){ s.paused=true; s.ht=true; }
+        else if(s.paused){ s.paused=false; s.ht=false; }   // resumed (2nd half) until api re-anchors
+        continue;
+      }
+      // no api anchor yet -> estimate the running minute from kick-off
+      const el=Math.max(0, Math.floor((NOW().getTime()-Date.parse(fx.utc))/1000));
+      clockState[fx.id]={min: ht?45:Math.floor(el/60), sec: ht?0:(el%60), stop:0, src:"est", paused:ht, ht:ht};
     }
   }
   for(const id in clockState){ if(!liveIds.has(parseInt(id,10))) delete clockState[id]; }
+}
+/* ---------- api-sports.io: real live minute (few calls/day) ---------- */
+let _apiLastMs=0, _apiBusy=false;
+function getApiSportsLive(){
+  return fetch(CFG.apiSportsUrl,{headers:{"x-apisports-key":CFG.apiSportsKey}})
+    .then(function(r){ if(!r.ok) throw new Error("api "+r.status); return r.json(); })
+    .then(function(d){ return (d&&d.response)||[]; });
+}
+function applyApiClocks(arr){
+  const fixes=DATA.groupFixtures.concat(DATA.knockout);
+  for(const it of arr){
+    if(!it.teams||!it.fixture) continue;
+    const st=it.fixture.status||{};
+    const hk=mkey(it.teams.home.name), ak=mkey(it.teams.away.name);
+    const fx=fixes.find(function(f){
+      if(!f._m||f._m.cls!=="live") return false;
+      const a=mkey(f.group?f.home:(f._home||f.home)), b=mkey(f.group?f.away:(f._away||f.away));
+      return (a===hk&&b===ak)||(a===ak&&b===hk);
+    });
+    if(!fx) continue;
+    const mn=(st.elapsed||0)+(st.extra||0);
+    const ht=(st.short==="HT"||st.short==="BT"||st.short==="P");
+    clockState[fx.id]={min:mn,sec:0,stop:0,src:"api",paused:ht,ht:ht};
+    updateClockDom(fx.id);
+  }
+}
+function requestAnchor(){                                // fetch the real minute, throttled
+  if(liveSimOn||randomMode) return;
+  const now=Date.now();
+  if(_apiBusy || now-_apiLastMs<30000) return;
+  const anyLive=DATA.groupFixtures.concat(DATA.knockout).some(function(f){return f._m&&f._m.cls==="live";});
+  if(!anyLive) return;
+  _apiBusy=true; _apiLastMs=now;
+  getApiSportsLive().then(applyApiClocks).catch(function(){}).then(function(){_apiBusy=false;});
 }
 function detectGoals(){
   for(const fx of DATA.groupFixtures.concat(DATA.knockout)){
@@ -487,7 +537,8 @@ function normalizeEvent(ev){
   const as=(ev.intAwayScore===null||ev.intAwayScore==="")?null:parseInt(ev.intAwayScore,10);
   return { id:ev.idEvent, home:ev.strHomeTeam, away:ev.strAwayTeam,
     hk:mkey(ev.strHomeTeam), ak:mkey(ev.strAwayTeam),
-    time:evTime(ev), hs, as, cls:classify(ev), minute:liveMinute(ev) };
+    time:evTime(ev), hs, as, cls:classify(ev), minute:liveMinute(ev),
+    status:(ev.strStatus||"").trim() };
 }
 
 /* ---------- match fixtures to events ---------- */
@@ -501,7 +552,7 @@ function processData(events){
     if(e){ used.add(e.id);
       let hs=e.hs, as=e.as;
       if(e.hk!==hk){ const t=hs; hs=as; as=t; }
-      fx._m={hs,as,cls:e.cls,minute:e.minute,finished:e.cls==="finished"};
+      fx._m={hs,as,cls:e.cls,minute:e.minute,finished:e.cls==="finished",status:e.status};
     }
   }
   // standings
@@ -520,7 +571,7 @@ function processData(events){
     for(const e of events){ if(used.has(e.id)||e.time==null) continue; const d=Math.abs(e.time-t); if(d<bd){bd=d;best=e;} }
     if(best){ used.add(best.id);
       fx._home=canon(best.home); fx._away=canon(best.away);
-      fx._m={hs:best.hs,as:best.as,cls:best.cls,minute:best.minute,finished:best.cls==="finished"};
+      fx._m={hs:best.hs,as:best.as,cls:best.cls,minute:best.minute,finished:best.cls==="finished",status:best.status};
     }
     koById[fx.id]=fx;
   }
@@ -902,8 +953,17 @@ async function refresh(){
     const ctx=processData(events);
     lastCtx=ctx;
     hasLive=DATA.groupFixtures.concat(DATA.knockout).some(f=>f._m&&f._m.cls==="live");
+    // anchor the real minute (api-sports) on phase transitions / first-live
+    let needAnchor=false;
+    DATA.groupFixtures.concat(DATA.knockout).forEach(function(fx){
+      const m=fx._m;
+      const ph=(m&&m.cls==="live") ? phaseOf(m.status) : (m&&m.finished?"done":"pre");
+      if(m&&m.cls==="live" && fx._phase!==ph) needAnchor=true;
+      fx._phase=ph;
+    });
     render(ctx);
     renderToday();
+    if(needAnchor) requestAnchor();
     const t=FMT_CLOCK.format(new Date());
     setStatus(true,(hasLive?"LIVE · ":"Updated ")+t);
   }catch(e){
@@ -926,8 +986,10 @@ refresh();
 // real-time match clock: advance seconds for live matches between API refreshes
 setInterval(()=>{
   if(liveSimOn) return;                       // simulation manages its own clock
-  for(const id in clockState){ const s=clockState[id]; s.sec++; if(s.sec>=60){s.sec=0;s.min++;} updateClockDom(id); }
+  for(const id in clockState){ const s=clockState[id]; if(!s.paused){ s.sec++; if(s.sec>=60){s.sec=0;s.min++;} } updateClockDom(id); }
 },1000);
+// periodic re-anchor of the real minute from api-sports while a match is live (few calls)
+setInterval(requestAnchor, CFG.apiSportsSafetyMs);
 // resume audio on first user interaction (browsers block autoplay)
 document.addEventListener("click",()=>{ try{ if(actx&&actx.state==="suspended") actx.resume(); }catch(e){} });
 
