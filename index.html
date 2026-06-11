@@ -313,7 +313,7 @@ let goalFlashTimer=null, actx=null;
 function NOW(){ return simNow!=null ? new Date(simNow) : new Date(); }
 
 /* ---------- match clock + GOAL flash + sound ---------- */
-function pad2(n){ return String(n).padStart(2,"0"); }
+function pad2(n){ n=String(n); return n.length<2 ? ("0"+n) : n; }
 function fmtMMSS(s){ return (s.stop>0 ? (s.min+"+"+s.stop) : ""+s.min)+":"+pad2(s.sec); }
 function baseMinute(m){ if(!m) return null; const n=parseInt(String(m.minute||"").replace(/[^\d].*$/,""),10); return isNaN(n)?null:n; }
 function clockTextFor(fx){
@@ -418,15 +418,14 @@ function norm(s){return (s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/
 function canon(name){const c=ALIAS[norm(name)];return c||name;}
 function mkey(name){return norm(canon(name));}
 
-/* ---------- fetch ---------- */
-async function getJSON(url){
-  const ctrl=new AbortController();
-  const t=setTimeout(()=>ctrl.abort(),CFG.fetchTimeoutMs);
-  try{
-    const r=await fetch(url,{signal:ctrl.signal,cache:"no-store"});
-    if(!r.ok) throw new Error("HTTP "+r.status);
-    return await r.json();
-  } finally { clearTimeout(t); }
+/* ---------- fetch (compatible with older browsers) ---------- */
+function getJSON(url){
+  var opts={cache:"no-store"}, ctrl=null, t=null;
+  if(typeof AbortController!=="undefined"){ ctrl=new AbortController(); opts.signal=ctrl.signal; }
+  var p=fetch(url,opts).then(function(r){ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); });
+  var timeout=new Promise(function(_,rej){ t=setTimeout(function(){ if(ctrl) ctrl.abort(); rej(new Error("timeout")); }, CFG.fetchTimeoutMs); });
+  return Promise.race([p,timeout]).then(function(v){ clearTimeout(t); return v; },
+                                        function(e){ clearTimeout(t); throw e; });
 }
 
 /* ---------- API load + normalise events ---------- */
@@ -436,10 +435,13 @@ async function loadEvents(){
     BASE+"/eventsnextleague.php?id="+CFG.leagueId,
     BASE+"/eventspastleague.php?id="+CFG.leagueId
   ];
-  const res=await Promise.allSettled(urls.map(getJSON));
+  const res=await Promise.all(urls.map(function(u){
+    return getJSON(u).then(function(v){return {status:"fulfilled",value:v};},
+                           function(){return {status:"rejected"};});
+  }));
   if(!res.some(r=>r.status==="fulfilled")) throw new Error("all requests failed");
   const map=new Map();
-  const ingest=arr=>{ if(Array.isArray(arr)) for(const ev of arr){ if(ev&&ev.idEvent){ map.set(ev.idEvent,{...(map.get(ev.idEvent)||{}),...ev}); } } };
+  const ingest=arr=>{ if(Array.isArray(arr)) for(const ev of arr){ if(ev&&ev.idEvent){ map.set(ev.idEvent, Object.assign({}, map.get(ev.idEvent)||{}, ev)); } } };
   res.forEach(r=>{ if(r.status==="fulfilled") ingest(r.value&&r.value.events); });
   return [...map.values()].map(normalizeEvent);
 }
@@ -622,12 +624,12 @@ function teamCell(name,side){
 function renderFixtureRow(fx){
   const m=fx._m; let cls="fx", center, badge="";
   if(m&&m.cls==="live"){ cls+=" live";
-    center='<span class="sc livesc">'+(m.hs??0)+' - '+(m.as??0)+'</span>';
+    center='<span class="sc livesc">'+(m.hs==null?0:m.hs)+' - '+(m.as==null?0:m.as)+'</span>';
     const ct=clockTextFor(fx);
     badge = ct ? '<span class="badge-live"><span class="js-clk" data-fx="'+fx.id+'">'+ct+'</span></span>'
                : '<span class="badge-live">'+esc(m.minute)+'</span>';
   } else if(m&&m.finished){ cls+=" done";
-    center='<span class="sc">'+(m.hs??0)+' - '+(m.as??0)+'</span>';
+    center='<span class="sc">'+(m.hs==null?0:m.hs)+' - '+(m.as==null?0:m.as)+'</span>';
     badge='<span class="badge-ft">FT</span>';
   } else {
     center='<span class="sc vs">v</span>';
@@ -720,8 +722,8 @@ function renderKnockout(ctx){
       const isFinal=rm.key==="FINAL";
       const h=koLabel(fx,"h",ctx), a=koLabel(fx,"a",ctx);
       const m=fx._m; let center, live="";
-      if(m&&m.cls==="live"){ center='<span class="ksc" style="color:var(--live)">'+(m.hs??0)+'-'+(m.as??0)+'</span>'; live=" live"; }
-      else if(m&&m.finished){ center='<span class="ksc">'+(m.hs??0)+'-'+(m.as??0)+'</span>'; }
+      if(m&&m.cls==="live"){ center='<span class="ksc" style="color:var(--live)">'+(m.hs==null?0:m.hs)+'-'+(m.as==null?0:m.as)+'</span>'; live=" live"; }
+      else if(m&&m.finished){ center='<span class="ksc">'+(m.hs==null?0:m.hs)+'-'+(m.as==null?0:m.as)+'</span>'; }
       else { center='<span class="ksc" style="color:var(--muted);font-weight:600">v</span>'; }
       html+='<div class="km'+(isFinal?" final":"")+live+'">';
       if(isFinal) html+='<div class="rfinal">&#127942; World Champion 2026</div>';
