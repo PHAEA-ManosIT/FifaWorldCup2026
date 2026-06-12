@@ -209,7 +209,7 @@
      MOBILE / TABLET (portrait or narrow). Yodeck (landscape 1920) is
      NEVER affected — this block only applies to phones/tablets.
      ============================================================ */
-  @media (orientation: portrait), (max-width: 860px){
+  @media (orientation: portrait){
     /* ---- header: 2 rows, no overlap ---- */
     header{height:14vh;flex-wrap:wrap;align-content:center;padding:0 4vw;}
     .brand{flex:1 1 auto;}
@@ -286,6 +286,55 @@
     .gf-flag{width:18vw;height:12vw;}
     .gf-name{font-size:11vw;}
     .gf-info{font-size:5vw;}
+  }
+
+  /* ---- LANDSCAPE on phones/tablets (≤1180px wide). Yodeck 1920 untouched.
+         clamp() keeps text readable on both short phones and bigger tablets. ---- */
+  @media (orientation: landscape) and (max-width: 1180px){
+    .brand h1{font-size:clamp(17px,4.6vh,32px);}
+    .brand .sub{font-size:clamp(9px,2vh,15px);}
+    .trophy svg{width:clamp(28px,6.5vh,52px);height:clamp(28px,6.5vh,52px);}
+    #clock{font-size:clamp(20px,5.6vh,42px);}
+    #cdate{font-size:clamp(9px,2vh,15px);}
+    .tz{font-size:clamp(8px,1.6vh,12px);}
+    .status{font-size:clamp(9px,1.9vh,14px);}
+    .live-flag{font-size:clamp(18px,4.4vh,34px);}
+
+    #todayInner{font-size:clamp(13px,2.6vh,22px);}
+    #todaybar .tlabel{font-size:clamp(13px,2.6vh,22px);}
+    .ttime,.tsc{font-size:clamp(13px,2.7vh,22px);}
+    .ttop{font-size:clamp(9px,1.8vh,15px);}
+    .titem img.flag{width:clamp(16px,3vh,26px);height:clamp(11px,2vh,18px);}
+
+    .section h2{font-size:clamp(18px,4.6vh,38px);}
+    .section .note{font-size:clamp(10px,2.1vh,16px);}
+
+    .ghead .gname{font-size:clamp(16px,4vh,30px);}
+    table.st th{font-size:clamp(9px,1.9vh,15px);}
+    table.st td{font-size:clamp(13px,3vh,22px);}
+    img.flag{width:clamp(18px,3.6vh,30px);height:clamp(12px,2.4vh,20px);}
+
+    .fx .nm{font-size:clamp(13px,3vh,22px);}
+    .fxtime,.fxsc{font-size:clamp(13px,3vh,22px);}
+    .fxtop{font-size:clamp(9px,1.9vh,15px);}
+    .fxdate{font-size:clamp(9px,1.8vh,14px);}
+    .reltag{font-size:clamp(8px,1.6vh,13px);}
+
+    .round .rt{font-size:clamp(15px,3.6vh,28px);}
+    .ko.c4 .km{width:48%;}              /* 4 -> 2 per row */
+    .km .kt{font-size:clamp(13px,2.8vh,22px);}
+    .km .kwhen{font-size:clamp(9px,1.9vh,15px);}
+    .km .kt img.flag{width:clamp(18px,3.6vh,30px);height:clamp(12px,2.4vh,20px);}
+    .km.final .kt{font-size:clamp(16px,3.4vh,26px);}
+
+    .champ-trophy svg{width:clamp(80px,20vh,200px);height:clamp(80px,20vh,200px);}
+    .champ-title{font-size:clamp(28px,7vh,70px);}
+    .champ-name{font-size:clamp(40px,11vh,120px);}
+    .champ-flag{width:clamp(160px,30vh,320px);}
+    .gf-text{font-size:clamp(70px,22vh,260px);}
+    .gf-name{font-size:clamp(34px,9vh,90px);}
+    .gf-flag{width:clamp(70px,13vh,150px);height:auto;}
+    .gf-info{font-size:clamp(18px,4vh,44px);}
   }
 </style>
 </head>
