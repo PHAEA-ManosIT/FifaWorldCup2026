@@ -109,6 +109,13 @@
   .km .kt img.flag{width:3vh;height:2vh;}
   .km.final .kt img.flag{width:4vh;height:2.7vh;}
 
+  /* ---------- Schedule (matches by day) ---------- */
+  .schday{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.2vh 1.3vw;margin-bottom:1.6vh;}
+  .schday.today{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold) inset;}
+  .schhead{font-size:2.5vh;font-weight:800;color:var(--blue);letter-spacing:1px;margin-bottom:.6vh;}
+  .schday.today .schhead{color:var(--gold);}
+  .schtag{background:var(--gold);color:#03081a;font-size:1.5vh;font-weight:800;padding:.1vh .7vw;border-radius:6px;text-transform:uppercase;margin-right:.4vw;}
+
   /* ---------- Fixtures inside group (Home — time/score — Away) ---------- */
   .fix{border-top:1px dashed var(--border);padding-top:1vh;margin-top:.6vh;}
   .fx{display:flex;align-items:center;padding:.6vh .5vw;border-radius:8px;margin-bottom:.5vh;}
@@ -244,6 +251,8 @@
     .section .bar{height:5.5vw;margin-right:2.5vw;}
     .section h2{font-size:5.6vw;letter-spacing:1.5px;}
     .section .note{font-size:2.6vw;margin-left:2vw;}
+    .schhead{font-size:4.8vw;}
+    .schtag{font-size:2.6vw;}
 
     /* ---- groups: single column ---- */
     .gcard{width:100%;padding:1.6vh 4vw;margin-bottom:2vh;}
@@ -308,6 +317,8 @@
 
     .section h2{font-size:clamp(18px,4.6vh,38px);}
     .section .note{font-size:clamp(10px,2.1vh,16px);}
+    .schhead{font-size:clamp(15px,3.6vh,28px);}
+    .schtag{font-size:clamp(9px,1.8vh,14px);}
 
     .ghead .gname{font-size:clamp(16px,4vh,30px);}
     table.st th{font-size:clamp(9px,1.9vh,15px);}
@@ -464,7 +475,15 @@ const TROPHY='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 4V2H6v2H
 /* ---------- match clock + GOAL flash + sound ---------- */
 function pad2(n){ n=String(n); return n.length<2 ? ("0"+n) : n; }
 function fmtMMSS(s){ return (s.stop>0 ? (s.min+"+"+s.stop) : ""+s.min)+":"+pad2(s.sec); }
-function fmtState(s){ return s.ht ? "HT" : fmtMMSS(s); }
+function clockSeconds(s){
+  if(s.startMs!=null) return s.baseSec + (NOW().getTime()-s.startMs)/1000;   // absolute (periods/est)
+  return (s.min||0)*60 + (s.sec||0);                                          // legacy/sim
+}
+function fmtState(s){
+  if(s.ht) return "HT";
+  if(s.startMs!=null){ var t=Math.max(0,Math.floor(clockSeconds(s))); return Math.floor(t/60)+":"+pad2(t%60); }
+  return fmtMMSS(s);
+}
 function clockTextFor(fx){ const s=clockState[fx.id]; return s ? fmtState(s) : ""; }
 function updateClockDom(id){
   const s=clockState[id]; if(!s) return; const t=fmtState(s);
@@ -485,16 +504,16 @@ function syncClocks(){
     if(m&&m.cls==="live"){
       liveIds.add(fx.id);
       if(liveSimOn && simIds.has(fx.id)) continue;   // simulation drives its own clock
-      const ht=(phaseOf(m.status)==="ht");
+      const ph=phaseOf(m.status), ht=(ph==="ht");
       const s=clockState[fx.id];
-      if(s && s.src==="api"){                          // keep the real minute from api-sports
-        if(ht){ s.paused=true; s.ht=true; }
-        else if(s.paused){ s.paused=false; s.ht=false; }   // resumed (2nd half) until api re-anchors
+      if(s && (s.src==="periods"||s.src==="api")){       // keep exact api/periods anchor
+        if(ht) s.ht=true;
+        else if(ph==="h2" && s.src==="periods" && s.baseSec<2700) s.ht=true;  // freeze until 2nd-half anchor arrives
+        else s.ht=false;
         continue;
       }
-      // no api anchor yet -> estimate the running minute from kick-off
-      const el=Math.max(0, Math.floor((NOW().getTime()-Date.parse(fx.utc))/1000));
-      clockState[fx.id]={min: ht?45:Math.floor(el/60), sec: ht?0:(el%60), stop:0, src:"est", paused:ht, ht:ht};
+      // estimate fallback (until api returns): run from scheduled kick-off (absolute -> refresh-proof)
+      clockState[fx.id]={startMs:Date.parse(fx.utc), baseSec:0, ht:ht, src:"est"};
     }
   }
   for(const id in clockState){ if(!liveIds.has(parseInt(id,10))) delete clockState[id]; }
@@ -518,9 +537,13 @@ function applyApiClocks(arr){
       return (a===hk&&b===ak)||(a===ak&&b===hk);
     });
     if(!fx) continue;
-    const mn=(st.elapsed||0)+(st.extra||0);
-    const ht=(st.short==="HT"||st.short==="BT"||st.short==="P");
-    clockState[fx.id]={min:mn,sec:0,stop:0,src:"api",paused:ht,ht:ht};
+    const p=it.fixture.periods||{}, sh=st.short;
+    let e;
+    if(sh==="2H" && p.second){ e={src:"periods",startMs:p.second*1000,baseSec:2700,ht:false}; }   // exact 2nd half
+    else if(sh==="1H" && p.first){ e={src:"periods",startMs:p.first*1000,baseSec:0,ht:false}; }    // exact 1st half
+    else if(sh==="HT"||sh==="BT"){ e={src:"periods",startMs:(p.first?p.first*1000:Date.parse(fx.utc)),baseSec:0,ht:true}; }
+    else { const mn=(st.elapsed||0)+(st.extra||0); e={src:"api",startMs:Date.now()-mn*60000,baseSec:0,ht:(sh==="P")}; }  // ET / no-periods fallback
+    clockState[fx.id]=e;
     updateClockDom(fx.id);
   }
 }
@@ -817,24 +840,54 @@ function teamCell(name,side){
                :('<span class="fl">'+flag(name)+'</span><span class="nm">'+esc(name)+'</span>'))+'</span>';
 }
 
-function renderFixtureRow(fx){
+function renderFixtureRow(fx, timeOnly){
   const m=fx._m; let cls="fx", mid;
+  const hn = fx.group ? fx.home : (fx._home||fx.home);
+  const an = fx.group ? fx.away : (fx._away||fx.away);
   if(m&&m.cls==="live"){ cls+=" live"; const ct=clockTextFor(fx);
     mid='<span class="fxm"><span class="fxtop">'+(ct?'<span class="js-clk" data-fx="'+fx.id+'">'+ct+'</span>':esc(m.minute||"LIVE"))+'</span>'+
         '<span class="fxsc live">'+(m.hs==null?0:m.hs)+' - '+(m.as==null?0:m.as)+'</span></span>';
   } else if(m&&m.finished){ cls+=" done";
     mid='<span class="fxm"><span class="fxtop ft">FT</span><span class="fxsc">'+(m.hs==null?0:m.hs)+' - '+(m.as==null?0:m.as)+'</span></span>';
   } else {
-    const r=relDayInfo(fx.utc), t=FMT_CLOCK.format(new Date(fx.utc));
-    const tag = r.lbl ? '<span class="reltag r'+r.diff+'">'+r.lbl+'</span>'
-                      : '<span class="fxdate">'+gWhen(fx.utc).replace(/\s+\d{1,2}:\d{2}$/,"")+'</span>';
-    mid='<span class="fxm">'+tag+'<span class="fxtime">'+t+'</span></span>';
+    const t=FMT_CLOCK.format(new Date(fx.utc));
+    if(timeOnly){ mid='<span class="fxm"><span class="fxtime">'+t+'</span></span>'; }
+    else {
+      const r=relDayInfo(fx.utc);
+      const tag = r.lbl ? '<span class="reltag r'+r.diff+'">'+r.lbl+'</span>'
+                        : '<span class="fxdate">'+gWhen(fx.utc).replace(/\s+\d{1,2}:\d{2}$/,"")+'</span>';
+      mid='<span class="fxm">'+tag+'<span class="fxtime">'+t+'</span></span>';
+    }
   }
   return '<div class="'+cls+'">'+
-      '<span class="fxh"><span class="nm">'+esc(fx.home)+'</span>'+flag(fx.home)+'</span>'+
+      '<span class="fxh"><span class="nm">'+esc(hn)+'</span>'+flag(hn)+'</span>'+
       mid+
-      '<span class="fxa">'+flag(fx.away)+'<span class="nm">'+esc(fx.away)+'</span></span>'+
+      '<span class="fxa">'+flag(an)+'<span class="nm">'+esc(an)+'</span></span>'+
     '</div>';
+}
+function renderSchedule(ctx){             // matches by day, window: yesterday .. +5 days (Greece)
+  const today0=Date.parse(FMT_DAYKEY.format(NOW()));
+  const days={};
+  for(const fx of DATA.groupFixtures.concat(DATA.knockout)){
+    const k=FMT_DAYKEY.format(new Date(fx.utc));
+    const diff=Math.round((Date.parse(k)-today0)/86400000);
+    if(diff>=-1 && diff<=5){ (days[k]=days[k]||[]).push(fx); }
+  }
+  const keys=Object.keys(days).sort();
+  if(!keys.length) return "";
+  const FMT_D=new Intl.DateTimeFormat("en-GB",{timeZone:CFG.tz,weekday:"long",day:"numeric",month:"short"});
+  let html='<div class="section"><span class="bar"></span><h2>Schedule</h2><span class="note">Matches by day &middot; Greece time</span></div>';
+  for(const k of keys){
+    const diff=Math.round((Date.parse(k)-today0)/86400000);
+    const lbl = diff===0?"Today" : diff===1?"Tomorrow" : diff===-1?"Yesterday" : "";
+    const dlabel=FMT_D.format(new Date(k+"T12:00:00Z"));
+    const fixs=days[k].slice().sort(function(a,b){return Date.parse(a.utc)-Date.parse(b.utc);});
+    html+='<div class="schday'+(diff===0?" today":"")+'">'+
+          '<div class="schhead">'+(lbl?'<span class="schtag">'+lbl+'</span> ':'')+esc(dlabel)+'</div>'+
+          '<div class="fix">'+fixs.map(function(fx){return renderFixtureRow(fx,true);}).join("")+'</div>'+
+          '</div>';
+  }
+  return html;
 }
 
 function renderGroups(ctx){
@@ -1041,7 +1094,7 @@ function render(ctx){
   applyChampion(showChamp, info, champOverride && !info);
   const max=scroller.scrollHeight-scroller.clientHeight;
   const ratio=max>0?scroller.scrollTop/max:0;
-  stage.innerHTML = currentPhase(ctx)==="knockout" ? renderKnockout(ctx) : renderGroups(ctx);
+  stage.innerHTML = renderSchedule(ctx) + (currentPhase(ctx)==="knockout" ? renderKnockout(ctx) : renderGroups(ctx));
   const nmax=scroller.scrollHeight-scroller.clientHeight;
   scroller.scrollTop=ratio*nmax;
   detectGoals();
@@ -1118,7 +1171,7 @@ refresh();
 // real-time match clock: advance seconds for live matches between API refreshes
 setInterval(()=>{
   if(liveSimOn) return;                       // simulation manages its own clock
-  for(const id in clockState){ const s=clockState[id]; if(!s.paused){ s.sec++; if(s.sec>=60){s.sec=0;s.min++;} } updateClockDom(id); }
+  for(const id in clockState){ updateClockDom(id); }   // recompute from absolute time (drift-free)
 },1000);
 // periodic re-anchor of the real minute from api-sports while a match is live (few calls)
 setInterval(requestAnchor, CFG.apiSportsSafetyMs);
