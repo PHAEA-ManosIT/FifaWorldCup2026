@@ -217,20 +217,22 @@
      NEVER affected — this block only applies to phones/tablets.
      ============================================================ */
   @media (orientation: portrait){
-    /* ---- header: 2 rows, no overlap ---- */
-    header{height:14vh;flex-wrap:wrap;align-content:center;padding:0 4vw;}
-    .brand{flex:1 1 auto;}
-    .trophy svg{width:7vw;height:7vw;}
-    .brand h1{font-size:5vw;}
-    .brand .sub{font-size:2.4vw;letter-spacing:1.5px;}
-    .hr{flex:0 0 auto;}
-    #clock{font-size:6.5vw;}
-    #cdate,.tz{display:none;}
-    .status{margin-left:3vw;font-size:2.4vw;}
-    .dot{width:2.4vw;height:2.4vw;}
+    /* ---- header: clean 2 rows (title+clock, then LIVE) ---- */
+    header{height:14vh;flex-wrap:wrap;align-content:center;padding:0 4.5vw;row-gap:1.4vw;
+      border-bottom-width:2px;}
+    .brand{flex:1 1 auto;align-items:center;}
+    .trophy svg{width:8vw;height:8vw;}
+    .brand h1{font-size:5.4vw;line-height:1.02;}
+    .brand .sub{font-size:2.3vw;letter-spacing:1.5px;}
+    .hr{flex:0 0 auto;flex-direction:column;align-items:flex-end;}
+    #clock{font-size:7vw;line-height:1;}
+    #cdate{display:block;font-size:2.3vw;color:var(--muted);margin-top:.3vw;}
+    .tz{display:none;}
+    .status{margin-left:0;margin-top:.6vw;font-size:2.3vw;}
+    .dot{width:2.3vw;height:2.3vw;}
     .live-flag{position:static;transform:none;order:3;flex:0 0 100%;justify-content:center;
-      margin-top:1.2vw;font-size:4.8vw;letter-spacing:3px;}
-    .live-flag .ldot{width:2.6vw;height:2.6vw;margin-right:2vw;}
+      margin-top:.4vw;font-size:5vw;letter-spacing:4px;}
+    .live-flag .ldot{width:2.8vw;height:2.8vw;margin-right:2vw;}
 
     /* ---- today bar ---- */
     #todaybar{top:14vh;height:8vh;}
@@ -295,6 +297,16 @@
     .gf-flag{width:18vw;height:12vw;}
     .gf-name{font-size:11vw;}
     .gf-info{font-size:5vw;}
+
+    /* ---- dev controls: touch-friendly, wraps, scrollable ---- */
+    #devtoggle{width:12vw;height:12vw;font-size:6vw;left:3.5vw;bottom:3.5vw;}
+    #devpanel{left:3vw;right:3vw;bottom:18vw;max-height:60vh;overflow:auto;gap:1.8vw;
+      padding:3.5vw;border-radius:14px;}
+    #devpanel .drow{flex-wrap:wrap;gap:1.8vw;align-items:center;}
+    #devpanel .dl{width:100%;font-size:3vw;margin-bottom:.4vw;letter-spacing:1.5px;}
+    #devpanel .simlbl{font-size:3.2vw;min-width:auto;}
+    #devpanel button{font-size:3.6vw;padding:1.8vw 3.4vw;border-radius:10px;}
+    #devpanel input[type=date]{font-size:3.6vw;padding:1.6vw 2.8vw;border-radius:10px;}
   }
 
   /* ---- LANDSCAPE on phones/tablets (≤1180px wide). Yodeck 1920 untouched.
@@ -346,6 +358,15 @@
     .gf-name{font-size:clamp(34px,9vh,90px);}
     .gf-flag{width:clamp(70px,13vh,150px);height:auto;}
     .gf-info{font-size:clamp(18px,4vh,44px);}
+
+    /* ---- dev controls: touch-friendly, wraps, scrollable ---- */
+    #devtoggle{width:8vh;height:8vh;font-size:4vh;left:1.5vh;bottom:1.5vh;}
+    #devpanel{left:1.5vh;bottom:10.5vh;max-width:80vw;max-height:82vh;overflow:auto;gap:1.1vh;padding:1.6vh;border-radius:12px;}
+    #devpanel .drow{flex-wrap:wrap;gap:1vh;align-items:center;}
+    #devpanel .dl{width:100%;font-size:clamp(10px,1.7vh,14px);margin-bottom:.3vh;}
+    #devpanel .simlbl{font-size:clamp(11px,1.9vh,15px);min-width:auto;}
+    #devpanel button{font-size:clamp(12px,2vh,17px);padding:.8vh 1.6vh;border-radius:9px;}
+    #devpanel input[type=date]{font-size:clamp(12px,2vh,17px);padding:.7vh 1.2vh;border-radius:9px;}
   }
 </style>
 </head>
